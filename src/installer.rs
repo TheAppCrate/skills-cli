@@ -165,14 +165,27 @@ pub fn remove_canonical(
     Ok(target)
 }
 
+const COPY_SKIP_DIRS: &[&str] = &[".agents", ".git"];
+
 pub fn copy_dir_recursive(src: &Path, dst: &Path) -> io::Result<()> {
     fs::create_dir_all(dst)?;
     for entry in fs::read_dir(src)? {
         let entry = entry?;
-        let file_type = entry.file_type()?;
         let from = entry.path();
         let to = dst.join(entry.file_name());
-        if file_type.is_dir() {
+
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if COPY_SKIP_DIRS.contains(&name_str.as_ref()) {
+            continue;
+        }
+
+        let meta = match fs::metadata(&from) {
+            Ok(m) => m,
+            Err(_) => continue, // broken symlink — skip
+        };
+
+        if meta.is_dir() {
             copy_dir_recursive(&from, &to)?;
         } else {
             fs::copy(&from, &to)?;

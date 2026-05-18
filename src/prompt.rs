@@ -19,10 +19,11 @@ pub fn select_skills(skills: &[Skill]) -> io::Result<Vec<usize>> {
     let items: Vec<String> = skills
         .iter()
         .map(|s| {
+            let desc = truncate_description(&s.description, 60);
             if s.is_internal {
-                format!("{} {} (internal)", s.name, s.description.dimmed())
+                format!("{} {} (internal)", s.name, desc.dimmed())
             } else {
-                format!("{} {}", s.name, s.description.dimmed())
+                format!("{} {}", s.name, desc.dimmed())
             }
         })
         .collect();
@@ -30,6 +31,7 @@ pub fn select_skills(skills: &[Skill]) -> io::Result<Vec<usize>> {
     let selected = MultiSelect::new()
         .with_prompt("Select skills to install")
         .items(&items)
+        .max_length(15)
         .interact()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
@@ -50,7 +52,8 @@ pub fn select_agents(agents: &[&AgentConfig], saved_agents: &[String]) -> io::Re
     let has_saved = defaults.iter().any(|&d| d);
     let ms = MultiSelect::new()
         .with_prompt("Select target agents")
-        .items(&items);
+        .items(&items)
+        .max_length(10);
     let selected = if has_saved {
         ms.defaults(&defaults)
     } else {
@@ -108,12 +111,22 @@ pub fn print_skill_list(skills: &[Skill]) {
     println!("\n{}", "Available skills:".bold());
     for skill in skills {
         let internal_tag = if skill.is_internal { " (internal)" } else { "" };
+        let desc = truncate_description(&skill.description, 70);
         println!(
             "  {} {}{}",
             skill.name.cyan(),
-            skill.description.dimmed(),
+            desc.dimmed(),
             internal_tag.yellow()
         );
     }
     println!();
+}
+
+fn truncate_description(desc: &str, max_len: usize) -> String {
+    let first_line = desc.lines().next().unwrap_or(desc).trim();
+    if first_line.len() <= max_len {
+        first_line.to_string()
+    } else {
+        format!("{}…", &first_line[..max_len - 1])
+    }
 }
